@@ -38,6 +38,11 @@ extension WKWebViewConfiguration {
 
         configuration.installContentBlockingRules()
 
+        // --csc: quick-fixing autoplay
+        // --csc: will make user-configurable, domain allow lists
+        configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypes.all
+        ///
+
         configuration.allowsAirPlayForMediaPlayback = true
         configuration.allowsInlineMediaPlayback = true
         configuration.allowsPictureInPictureMediaPlayback = true
