@@ -103,9 +103,9 @@ class MainViewController: UIViewController {
     
     let gestureBookmarksButton = GestureToolbarButton()
     
-    private var fireButtonAnimator: FireButtonAnimator?
+    private lazy var fireButtonAnimator: FireButtonAnimator = FireButtonAnimator(appSettings: appSettings)
     
-    private var bookmarksCachingSearch: BookmarksCachingSearch?
+    private lazy var bookmarksCachingSearch: BookmarksCachingSearch = CoreDependencyProvider.shared.bookmarksCachingSearch
 
     fileprivate lazy var tabSwitcherTransition = TabSwitcherTransitionDelegate()
     var currentTab: TabViewController? {
@@ -140,7 +140,6 @@ class MainViewController: UIViewController {
         loadInitialView()
         previewsSource.prepare()
         addLaunchTabNotificationObserver()
-        fireButtonAnimator = FireButtonAnimator(appSettings: appSettings)
 
         findInPageView.delegate = self
         findInPageBottomLayoutConstraint.constant = 0
@@ -508,6 +507,8 @@ class MainViewController: UIViewController {
     @IBAction func onFirePressed() {
         Pixel.fire(pixel: .forgetAllPressedBrowsing)
         
+        wakeLazyFireButtonAnimator()
+        
         if let spec = DaxDialogs.shared.fireButtonEducationMessage() {
             performSegue(withIdentifier: "ActionSheetDaxDialog", sender: spec)
         } else {
@@ -519,10 +520,18 @@ class MainViewController: UIViewController {
     }
     
     func onQuickFirePressed() {
+        wakeLazyFireButtonAnimator()
+        
         self.forgetAllWithAnimation {}
         self.dismiss(animated: true)
         if KeyboardSettings().onAppLaunch {
             self.enterSearch()
+        }
+    }
+    
+    private func wakeLazyFireButtonAnimator() {
+        DispatchQueue.main.async {
+            _ = self.fireButtonAnimator
         }
     }
 
@@ -691,7 +700,6 @@ class MainViewController: UIViewController {
         omniBar.resignFirstResponder()
         hideSuggestionTray()
         refreshOmniBar()
-        bookmarksCachingSearch = nil
     }
 
     fileprivate func refreshBackForwardButtons() {
@@ -1074,8 +1082,7 @@ extension MainViewController: OmniBarDelegate {
                 }
             }
         } else {
-            let bookmarksSearch = bookmarksCachingSearch ?? BookmarksCachingSearch()
-            tryToShowSuggestionTray(.autocomplete(query: updatedQuery, bookmarksCachingSearch: bookmarksSearch))
+            tryToShowSuggestionTray(.autocomplete(query: updatedQuery, bookmarksCachingSearch: bookmarksCachingSearch))
         }
         
     }
@@ -1152,14 +1159,10 @@ extension MainViewController: OmniBarDelegate {
     }
     
     func onTextFieldWillBeginEditing(_ omniBar: OmniBar) {
-        if bookmarksCachingSearch == nil {
-            bookmarksCachingSearch = BookmarksCachingSearch()
-        }
         guard homeController == nil else { return }
         
         if !skipSERPFlow, isSERPPresented, let query = omniBar.textField.text {
-            let bookmarksSearch = bookmarksCachingSearch ?? BookmarksCachingSearch()
-            tryToShowSuggestionTray(.autocomplete(query: query, bookmarksCachingSearch: bookmarksSearch))
+            tryToShowSuggestionTray(.autocomplete(query: query, bookmarksCachingSearch: bookmarksCachingSearch))
         } else {
             tryToShowSuggestionTray(.favorites)
         }
@@ -1642,7 +1645,7 @@ extension MainViewController: AutoClearWorker {
         
         tabManager.prepareAllTabsExceptCurrentForDataClearing()
         
-        fireButtonAnimator?.animate {
+        fireButtonAnimator.animate {
             self.tabManager.prepareCurrentTabForDataClearing()
             
             self.stopAllOngoingDownloads()
